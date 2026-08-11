@@ -17,37 +17,35 @@ Este projeto foi desenhado para resolver três desafios críticos na operação 
 A topologia da solução reflete um fluxo seguro e automatizado, desde o commit da desenvolvedora até a exposição segura da aplicação:
 
 ```mermaid
-C4Container
-    title Diagrama de Arquitetura (C4 Model) - CI/CD Magalu Cloud
+flowchart TD
+    dev(["👤 Desenvolvedora"])
 
-    Person(dev, "Desenvolvedora", "Envia código e gerencia infraestrutura")
-    
-    System_Boundary(github, "GitHub") {
-        Container(repo, "Repositório Git", "Código Fonte", "Armazena a aplicação e manifestos K8s")
-        Container(actions, "GitHub Actions", "CI/CD", "Pipeline de SAST, SCA, Build e Push da Imagem")
-    }
+    subgraph GitHub ["GitHub"]
+        repo[/" Repositório Git"/]
+        actions[[" GitHub Actions (CI/CD)"]]
+    end
 
-    System_Boundary(mgc, "Magalu Cloud (MGC)") {
-        Container(registry, "MGC Container Registry", "OCI Registry", "Armazena imagens Docker privadas")
+    subgraph MGC ["Magalu Cloud (MGC)"]
+        registry[/" MGC Container Registry"/]
+        dbaas[(" PostgreSQL DBaaS (BV1-4-10)")]
         
-        System_Boundary(k8s, "Cluster Kubernetes (K3s)") {
-            Container(ingress, "Traefik Ingress", "Load Balancer", "Recebe requisições externas na porta 80")
-            Container(api, "App API REST", "Deployment", "Executa a lógica de negócios (2 Réplicas)")
-            Container(prometheus, "Prometheus & Grafana", "Monitoring", "Coleta métricas e exibe dashboards")
-        }
+        subgraph K8s ["Cluster Kubernetes (K3s)"]
+            ingress{" Traefik Ingress"}
+            api[" App API REST (2 Réplicas)"]
+            prometheus[" Prometheus & Grafana"]
+        end
+    end
 
-        ContainerDb(dbaas, "PostgreSQL DBaaS", "Banco de Dados", "Banco de dados gerenciado (BV1-4-10)")
-    }
-
-    Rel(dev, repo, "Git Push (Código)", "HTTPS/SSH")
-    Rel(repo, actions, "Dispara Workflow", "Eventos Git")
-    Rel(actions, registry, "Push Imagem Docker", "MGC API")
-    Rel(actions, k8s, "Aplica Manifestos (kubectl apply)", "Kubeconfig API")
+    %% Relacionamentos
+    dev -- "1. Git Push" --> repo
+    repo -- "2. Dispara Workflow" --> actions
+    actions -- "3. Push Imagem Docker" --> registry
+    actions -- "4. Aplica Manifestos (kubectl)" --> K8s
     
-    Rel(ingress, api, "Roteia tráfego interno", "Service ClusterIP")
-    Rel(api, dbaas, "Lê/Grava Dados", "TCP 5432 (K8s Secret)")
-    Rel(prometheus, api, "Faz o Scrape (/metrics)", "ServiceMonitor")
-    Rel(k8s, registry, "Pull da Imagem (imagePullSecrets)", "HTTPS")
+    ingress -- "5. Roteia tráfego TCP 80" --> api
+    api -- "6. Lê/Grava Dados (TCP 5432)" --> dbaas
+    prometheus -- "7. Scrape (/metrics)" --> api
+    K8s -- "8. Pull Imagem" --> registry
 ```
 
 ---
