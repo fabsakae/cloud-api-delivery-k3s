@@ -1,0 +1,75 @@
+name: CI/CD Build e publicação na Magalu Cloud
+
+on:
+  push:
+    branches:
+      - main
+      - feature/container_registry
+  pull_request:
+    branches: 
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  MGC_REGION: br-se1
+  REGISTRY_NAME: registry-projeto-cicd
+  IMAGE_NAME: move-tech-orders-api
+  BUILD_CONTEXT: .
+  DOCKERFILE_PATH: ./Dockerfile
+
+jobs:
+  build-and-publish:
+    name: Validar, construir e publicar imagem
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout do código
+        uses: actions/checkout@v4
+
+      - name: Definir endereço da imagem
+        id: image
+        shell: bash
+        run: |
+          set -euo pipefail
+          REGISTRY_HOST="container-registry.${MGC_REGION}.magalu.cloud"
+          IMAGE_REPOSITORY="${REGISTRY_HOST}/${REGISTRY_NAME}/${IMAGE_NAME}"
+          echo "registry_host=${REGISTRY_HOST}" >> "$GITHUB_OUTPUT"
+          echo "image_repository=${IMAGE_REPOSITORY}" >> "$GITHUB_OUTPUT"
+          echo "Registry: ${REGISTRY_HOST}"
+          echo "Imagem: ${IMAGE_REPOSITORY}"
+
+      - name: Configurar Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Gerar tags e metadados da imagem
+        id: metadata
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ steps.image.outputs.image_repository }}
+          tags: |
+            type=raw,value=latest,enable=${{ github.event_name == 'push' || github.event_name == 'workflow_dispatch' }}
+            type=ref,event=branch
+            type=sha,format=long
+
+      - name: Autenticar no Container Registry da Magalu Cloud
+        if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ steps.image.outputs.registry_host }}
+          username: ${{ secrets.MAGALU_REGISTRY_USERNAME }}
+          password: ${{ secrets.MAGALU_REGISTRY_PASSWORD }}
+
+      - name: Construir e publicar imagem OCI
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ env.BUILD_CONTEXT }}
+          file: ${{ env.DOCKERFILE_PATH }}
+          push: ${{ github.event_name == 'push' || github.event_name == 'workflow_dispatch' }}
+          tags: ${{ steps.metadata.outputs.tags }}
+          labels: ${{ steps.metadata.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
