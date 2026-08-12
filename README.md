@@ -67,3 +67,60 @@ Para garantir a rastreabilidade e facilitar a resposta a incidentes, as decisõe
 *   **[ADR-0001: Adoção de Banco de Dados Externo (DBaaS)](docs/ADR-0001-DBaaS.md)**
 *   **[ADR-0002: Estratégia de Ingress e ClusterIP no K3s](docs/ADR-0002-Ingress-ClusterIP.md)**
 *   **[Runbook: Troubleshooting de Falhas no Kubernetes](docs/RUNBOOK-Troubleshooting.md)**
+
+##  Como Executar o Projeto (Passo a Passo)
+
+### 1. Provisionamento da Infraestrutura (Magalu Cloud)
+Criação da Máquina Virtual via MGC CLI dimensionada para suportar a carga de trabalho:
+```bash
+mgc virtual-machines instances create \
+  --name api-cluster-k3s \
+  --image.name "cloud-ubuntu-24.04 LTS" \
+  --machine-type.name BV2-4-40 \
+  --network.associate-public-ip true \
+  --ssh-key-name chave_api_k3s
+```
+
+### 2. Configuração do Orquestrador e CI/CD
+- Instalação do motor Kubernetes (K3s) na máquina provisionada.
+- Configuração dos `Secrets` de autenticação no repositório do GitHub (`MAGALU_REGISTRY_USERNAME` e `MAGALU_REGISTRY_PASSWORD`).
+- Disparo automático da esteira no GitHub Actions (via `git push`) para a construção da imagem Docker e envio ao MGC Container Registry.
+
+### 3. Implantação no Kubernetes (Manifestos Declarativos)
+Com a VM rodando e a imagem construída, a aplicação da infraestrutura imutável é feita via `kubectl`:
+```bash
+# 1. Criação da fronteira lógica (Namespace)
+kubectl apply -f namespace.yml
+
+# 2. Configuração do Secret de pull para o Registry Privado
+kubectl create secret docker-registry mgc-registry-secret \
+  --namespace move-tech-api \
+  --docker-server=container-registry.br-se1.magalu.cloud \
+  --docker-username='SEU_USUARIO' \
+  --docker-password='***'
+
+# 3. Orquestração da API (Deployment com 2 réplicas e Self-Healing)
+kubectl apply -f deployment.yml
+
+# 4. Roteamento interno e balanceamento de carga (Service)
+kubectl apply -f service.yml
+```
+
+##  CI/CD Pipeline (GitHub Actions)
+
+A entrega contínua (Continuous Delivery) é orquestrada pelo arquivo `.github/workflows/deploy.yml`. 
+
+**Gatilhos (Triggers):**
+- `push` na branch `main`.
+- Disparo manual via `workflow_dispatch`.
+
+**Etapas da Esteira (Jobs):**
+1. **Checkout:** Clona o código-fonte no *runner* isolado (Ubuntu-latest).
+2. **Autenticação Segura:** Faz o login no Magalu Cloud Container Registry sem expor credenciais no log.
+3. **Metadados e Tags:** Gera tags automáticas para a imagem baseadas no *commit* (rastreabilidade).
+4. **Build & Push OCI:** Constrói a imagem Docker baseada no `Dockerfile` e a publica na nuvem com suporte a cache (`type=gha`) para otimizar o tempo de execução.
+
+**Requisitos de Segurança (GitHub Secrets):**
+Para que a esteira tenha permissão de gravar no repositório da nuvem, os seguintes *Secrets* devem ser obrigatoriamente configurados nas configurações do repositório:
+- `MAGALU_REGISTRY_USERNAME`
+- `MAGALU_REGISTRY_PASSWORD`
