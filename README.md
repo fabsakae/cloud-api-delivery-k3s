@@ -147,7 +147,18 @@ Teste de saúde e roteamento apontando diretamente para o IP Público associado 
 curl http://<IP_PUBLICO_MGC>/health
 ```
 
-### 5. Provisionamento do Banco de Dados e Segurança (Em Desenvolvimento)
-- [ ] Criação do DBaaS PostgreSQL na Magalu Cloud.
-- [ ] Conexão da API com o banco via Kubernetes Secrets.
-- [ ] Implementação de ferramentas SAST (CodeQL) e SCA (Dependabot).
+### 5. Segurança Contínua (DevSecOps - Shift-Left)
+Para garantir a integridade do código e das dependências antes de qualquer implantação, a esteira foi blindada com verificações automatizadas de segurança no ecossistema do GitHub.
+
+**SCA (Software Composition Analysis) com Dependabot:**
+- Configurado via `.github/dependabot.yml` para varrer o `requirements.txt` (Pip) e as Actions da esteira.
+- Identifica pacotes defasados ou vulneráveis e cria automaticamente *Pull Requests* de correção (*Auto-remediation*), reduzindo a carga operacional da engenharia.
+
+**SAST (Static Application Security Testing) com CodeQL:**
+- Orquestrado via `.github/workflows/codeql.yml`.
+- Realiza testes estáticos profundos no código Python a cada *push* ou *pull request*, barrando a integração de falhas lógicas, injeções ou vazamentos estruturais na aplicação base.
+
+### 6. Banco de Dados e Observabilidade (Em Desenvolvimento)
+- [ ] Provisionamento do PostgreSQL (DBaaS) na Magalu Cloud.
+- [ ] Conexão da API com o banco via Kubernetes Secrets e refatoração do código.
+- [ ] Implantação do Prometheus e Grafana para monitoramento preventivo do cluster (evitando *OOMKilled*).
