@@ -1,0 +1,13 @@
+version: 2
+updates:
+  # Escaneia as Actions do GitHub ( deploy.yml)
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    
+  # Escaneia as dependências do Python (requirements.txt)
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "weekly"
