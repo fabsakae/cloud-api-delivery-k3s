@@ -56,7 +56,7 @@ jobs:
 
       - name: Autenticar no Container Registry da Magalu Cloud
         if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           registry: ${{ steps.image.outputs.registry_host }}
           username: ${{ secrets.MAGALU_REGISTRY_USERNAME }}
