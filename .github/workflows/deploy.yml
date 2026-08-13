@@ -42,7 +42,7 @@ jobs:
           echo "Imagem: ${IMAGE_REPOSITORY}"
 
       - name: Configurar Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
 
       - name: Gerar tags e metadados da imagem
         id: metadata
