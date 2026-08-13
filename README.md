@@ -68,6 +68,25 @@ Para garantir a rastreabilidade e facilitar a resposta a incidentes, as decisõe
 *   **[ADR-0002: Estratégia de Ingress e ClusterIP no K3s](docs/ADR-0002-Ingress-ClusterIP.md)**
 *   **[Runbook: Troubleshooting de Falhas no Kubernetes](docs/RUNBOOK-Troubleshooting.md)**
 
+##  CI/CD Pipeline (GitHub Actions)
+
+A entrega contínua (Continuous Delivery) é orquestrada pelo arquivo `.github/workflows/deploy.yml`. 
+
+**Gatilhos (Triggers):**
+- `push` na branch `main`.
+- Disparo manual via `workflow_dispatch`.
+
+**Etapas da Esteira (Jobs):**
+1. **Checkout:** Clona o código-fonte no *runner* isolado (Ubuntu-latest).
+2. **Autenticação Segura:** Faz o login no Magalu Cloud Container Registry sem expor credenciais no log.
+3. **Metadados e Tags:** Gera tags automáticas para a imagem baseadas no *commit* (rastreabilidade).
+4. **Build & Push OCI:** Constrói a imagem Docker baseada no `Dockerfile` e a publica na nuvem com suporte a cache (`type=gha`) para otimizar o tempo de execução.
+
+**Requisitos de Segurança (GitHub Secrets):**
+Para que a esteira tenha permissão de gravar no repositório da nuvem, os seguintes *Secrets* devem ser obrigatoriamente configurados nas configurações do repositório:
+- `MAGALU_REGISTRY_USERNAME`
+- `MAGALU_REGISTRY_PASSWORD`
+
 ##  Como Executar o Projeto (Passo a Passo)
 
 ### 1. Provisionamento da Infraestrutura (Magalu Cloud)
@@ -85,6 +104,7 @@ mgc virtual-machines instances create \
 - Instalação do motor Kubernetes (K3s) na máquina provisionada.
 - Configuração dos `Secrets` de autenticação no repositório do GitHub (`MAGALU_REGISTRY_USERNAME` e `MAGALU_REGISTRY_PASSWORD`).
 - Disparo automático da esteira no GitHub Actions (via `git push`) para a construção da imagem Docker e envio ao MGC Container Registry.
+
 
 ### 3. Implantação no Kubernetes (Manifestos Declarativos)
 Com a VM rodando e a imagem construída, a aplicação da infraestrutura imutável é feita via `kubectl`:
@@ -106,21 +126,28 @@ kubectl apply -f deployment.yml
 kubectl apply -f service.yml
 ```
 
-##  CI/CD Pipeline (GitHub Actions)
+### 4. Exposição Externa (Ingress e Roteamento)
+Para permitir que a API seja acessada pela internet, configuramos o Ingress Controller nativo (Traefik) e ajustamos as regras de segurança (Firewall) no provedor em nuvem.
 
-A entrega contínua (Continuous Delivery) é orquestrada pelo arquivo `.github/workflows/deploy.yml`. 
+**Configuração do Traefik Ingress:**
+Aplicação do manifesto de Ingress para mapear a porta 80 pública para o Service interno:
+```bash
+kubectl apply -f ingress.yml
+```
 
-**Gatilhos (Triggers):**
-- `push` na branch `main`.
-- Disparo manual via `workflow_dispatch`.
+**Liberação de Tráfego no Firewall (Magalu Cloud):**
+Para evitar o descarte de pacotes (`Timeout`), foi adicionada uma regra de entrada (*Inbound Rule*) no Security Group da Máquina Virtual, permitindo o tráfego HTTP público:
+- **Protocolo:** TCP
+- **Porta:** 80
+- **Origem (Source):** `0.0.0.0/0` (Qualquer IP)
 
-**Etapas da Esteira (Jobs):**
-1. **Checkout:** Clona o código-fonte no *runner* isolado (Ubuntu-latest).
-2. **Autenticação Segura:** Faz o login no Magalu Cloud Container Registry sem expor credenciais no log.
-3. **Metadados e Tags:** Gera tags automáticas para a imagem baseadas no *commit* (rastreabilidade).
-4. **Build & Push OCI:** Constrói a imagem Docker baseada no `Dockerfile` e a publica na nuvem com suporte a cache (`type=gha`) para otimizar o tempo de execução.
+**Validação Externa:**
+Teste de saúde e roteamento apontando diretamente para o IP Público associado à VM:
+```bash
+curl http://<IP_PUBLICO_MGC>/health
+```
 
-**Requisitos de Segurança (GitHub Secrets):**
-Para que a esteira tenha permissão de gravar no repositório da nuvem, os seguintes *Secrets* devem ser obrigatoriamente configurados nas configurações do repositório:
-- `MAGALU_REGISTRY_USERNAME`
-- `MAGALU_REGISTRY_PASSWORD`
+### 5. Provisionamento do Banco de Dados e Segurança (Em Desenvolvimento)
+- [ ] Criação do DBaaS PostgreSQL na Magalu Cloud.
+- [ ] Conexão da API com o banco via Kubernetes Secrets.
+- [ ] Implementação de ferramentas SAST (CodeQL) e SCA (Dependabot).
