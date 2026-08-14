@@ -9,7 +9,7 @@ O projeto `cloud-api-delivery-k3s` requer um banco de dados relacional para pers
 Hospedar bancos de dados dentro de um cluster K3s de nó único (Single-Node) aumenta o risco de indisponibilidade geral em casos de pico de consumo de memória (OOMKilled), além de tornar o processo de backup e restauração consideravelmente mais complexo.
 
 ## Decisão
-Decidi utilizar o **PostgreSQL na modalidade DBaaS (Database as a Service)** provido pela Magalu Cloud, utilizando uma instância dedicada do tipo `BV1-4-10` (1 vCPU, 4 GB RAM, 10 GiB Storage). 
+Decidi utilizar o **PostgreSQL na modalidade DBaaS (Database as a Service)** provido pela Magalu Cloud, utilizando uma instância dedicada do tipo `BV2-4-40` (2 vCPU, 4 GB RAM, 40 GiB Storage). 
 
 ## Justificativa
 *   A conexão da API com o banco será feita estritamente via rede, utilizando variáveis de ambiente injetadas nos pods através de `Kubernetes Secrets` e `GitHub Secrets` (para a pipeline).

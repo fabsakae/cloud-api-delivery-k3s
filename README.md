@@ -159,6 +159,51 @@ Para garantir a integridade do código e das dependências antes de qualquer imp
 - Realiza testes estáticos profundos no código Python a cada *push* ou *pull request*, barrando a integração de falhas lógicas, injeções ou vazamentos estruturais na aplicação base.
 
 ### 6. Banco de Dados e Observabilidade (Em Desenvolvimento)
-- [ ] Provisionamento do PostgreSQL (DBaaS) na Magalu Cloud.
-- [ ] Conexão da API com o banco via Kubernetes Secrets e refatoração do código.
+### 6.1. Roteamento Interno, Conexão DBaaS e Alta Disponibilidade
+
+Para atender aos requisitos de resiliência e segurança estipulados nas decisões arquiteturais (ADRs), a implantação da aplicação no cluster K3s foi dividida em injeção de segredos, roteamento interno e escalonamento de réplicas.
+
+**1. Injeção Segura de Credenciais (Secrets)**
+Para manter o pilar de Confidencialidade (Shift-Left Security), as credenciais do DBaaS e do Container Registry privado foram isoladas em cofres nativos do Kubernetes, impedindo o vazamento de senhas no código-fonte ou manifestos.
+
+```bash
+# Criação do Secret do Banco de Dados
+sudo kubectl create secret generic api-db-secret \
+  --from-literal=DATABASE_URL="postgresql://<USER>:<PASSWORD>@<IP_PRIVADO>:5432/orders"
+```
+
+# Criação do Secret de Autenticação do Registry (ImagePullSecrets)
+```
+sudo kubectl create secret docker-registry magalu-registry-secret \
+  --docker-server=container-registry.br-se1.magalu.cloud \
+  --docker-username="<REGISTRY_USER>" \
+  --docker-password="<REGISTRY_PASSWORD>"
+```
+
+**2. Implantação e Roteamento Interno (ClusterIP)**
+Cumprindo a **ADR-0002**, a API não foi exposta diretamente via `LoadBalancer`. O tráfego foi contido na rede interna do cluster utilizando um `ClusterIP`, liberando a porta 80 do nó hospedeiro exclusivamente para o Ingress.
+
+```bash
+# Aplicação do Service interno
+sudo kubectl apply -f api-service-clusterip.yaml
+```
+
+**3. Gateway de Entrada (Traefik Ingress)**
+Configuração do Traefik Ingress como API Gateway para receber requisições externas e roteá-las de forma segura para o serviço interno da aplicação.
+
+```bash
+# Aplicação da regra de Ingress
+sudo kubectl apply -f api-ingress.yaml
+```
+
+**4. Alta Disponibilidade (Self-Healing)**
+Escalonamento do Deployment da aplicação para operar no modelo *stateless* com redundância, garantindo disponibilidade contínua em caso de falha de um dos contêineres.
+
+```bash
+# Aumento de réplicas
+sudo kubectl scale deployment tokage-api-delivery --replicas=2
+
+# Auditoria de status dos pods
+sudo kubectl get pods
+```
 - [ ] Implantação do Prometheus e Grafana para monitoramento preventivo do cluster (evitando *OOMKilled*).
