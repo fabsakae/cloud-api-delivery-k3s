@@ -172,7 +172,7 @@ sudo kubectl create secret generic api-db-secret \
   --from-literal=DATABASE_URL="postgresql://<USER>:<PASSWORD>@<IP_PRIVADO>:5432/orders"
 ```
 
-# Criação do Secret de Autenticação do Registry (ImagePullSecrets)
+### Criação do Secret de Autenticação do Registry (ImagePullSecrets)
 ```
 sudo kubectl create secret docker-registry magalu-registry-secret \
   --docker-server=container-registry.br-se1.magalu.cloud \
