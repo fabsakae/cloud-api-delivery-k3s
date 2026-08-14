@@ -127,7 +127,7 @@ kubectl apply -f service.yml
 ```
 
 ### 4. Exposição Externa (Ingress e Roteamento)
-Para permitir que a API seja acessada pela internet, configuramos o Ingress Controller nativo (Traefik) e ajustamos as regras de segurança (Firewall) no provedor em nuvem.
+Para permitir que a API seja acessada pela internet, configurei o Ingress Controller nativo (Traefik) e ajustei as regras de segurança (Firewall) no provedor em nuvem.
 
 **Configuração do Traefik Ingress:**
 Aplicação do manifesto de Ingress para mapear a porta 80 pública para o Service interno:

@@ -1,0 +1,29 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tokage-api-delivery
+  labels:
+    app: tokage-api-delivery
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: tokage-api-delivery
+  template:
+    metadata:
+      labels:
+        app: tokage-api-delivery
+    spec:
+      containers:
+        - name: api-container
+          # A imagem será substituída automaticamente pela nossa esteira CI/CD
+          image: magalu.cloud/seu-registry/cloud-api-delivery:latest 
+          ports:
+            - containerPort: 8000
+          # O casamento entre a Aplicação e o Banco de Dados (Cofre)
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: api-db-secret
+                  key: DATABASE_URL
