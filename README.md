@@ -277,4 +277,3 @@ Objetivo: Rastrear o uso real de memória RAM em bytes (working_set_bytes) de ca
 
 
 
-- [ ] Implantação do Prometheus e Grafana para monitoramento preventivo do cluster (evitando *OOMKilled*).
