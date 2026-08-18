@@ -206,4 +206,75 @@ sudo kubectl scale deployment tokage-api-delivery --replicas=2
 # Auditoria de status dos pods
 sudo kubectl get pods
 ```
+
+### 7. Etapa de Observabilidade: Prometheus, Grafana & Helm no K3s
+
+Este documento detalha o processo de implementação da stack de monitoramento e observabilidade para a **Tokage API**, garantindo visibilidade em tempo real do consumo de recursos e prevenção contra falhas críticas de infraestrutura (como *OOMKilled*).
+
+---
+
+**1. Gerenciamento de Pacotes com Helm**
+
+Para evitar a implantação manual de dezenas de arquivos de configuração, utilizamos o **Helm** (gerenciador de pacotes oficial do Kubernetes) para orquestrar a suíte de monitoramento de forma padronizada.
+
+**2.Instalação do Helm na VM**
+```bash
+sudo snap install helm --classic
+helm version
+```
+**3. Adição do Repositório Oficial da Comunidade Prometheus**
+```bash
+helm repo add prometheus-community [https://prometheus-community.github.io/helm-charts](https://prometheus-community.github.io/helm-charts)
+helm repo update
+```
+**4. Implantação da Stack de Observabilidade (kube-prometheus-stack)**
+A suíte foi implantada em um namespace isolado (monitoring) para garantir a governança e a segurança da arquitetura, contendo o Prometheus (coleta), Grafana (visualização) e Alertmanager (alertas).
+
+
+```bash
+#Comando de Deploy via Helm
+helm install stack-monitoramento prometheus-community/kube-prometheus-stack \
+  --namespace monitoring \
+  --create-namespace \
+  --set grafana.adminPassword="admin"
+```
+
+
+```bash
+#Auditoria dos Pods no Namespace de Monitoramento
+kubectl get pods -n monitoring
+```
+- Componentes validados e operantes (Running):
+
+- prometheus-0 (Motor de séries temporais)
+
+- stack-monitoramento-grafana (Painel visual)
+
+- alertmanager-0 (Gerenciamento de alertas)
+
+- node-exporter & kube-state-metrics (Agentes coletores de métricas do K3s e do Host)
+
+**5. Segurança de Perímetro e Acesso Externo (MGC)**
+Para viabilizar o acesso ao painel do Grafana a partir de redes externas (respeitando o firewall da Magalu Cloud), foi mapeada e liberada a porta de acesso no Grupo de Segurança Padrão da VM:
+
+- Porta liberada: 8081 (TCP - Entrada)
+
+- Rede de origem: 0.0.0.0/0 (Qualquer IP autorizado para laboratório)
+
+## Redirecionamento de Porta (Port-Forward)
+### Para expor o serviço interno do Grafana para a porta de acesso externa da infraestrutura:
+```bash
+kubectl port-forward svc/stack-monitoramento-grafana 8081:80 -n monitoring --address 0.0.0.0
+```
+**6. Métricas e Consultas Customizadas (PromQL)**
+Para monitorar de forma proativa o comportamento das réplicas da tokage-api-delivery, foi criado um painel (Dashboard) customizado no Grafana utilizando a linguagem de consulta do Prometheus (PromQL).
+```bash
+#Métrica de Consumo de Memória por Réplica
+sum(container_memory_working_set_bytes{namespace="default", pod=~"tokage-api-delivery-.*"}) by (pod)
+```
+Objetivo: Rastrear o uso real de memória RAM em bytes (working_set_bytes) de cada réplica da API em tempo real, permitindo identificar picos de consumo anômalos antes de atingir o limite de exclusão do kernel (OOMKilled).
+
+
+
+
 - [ ] Implantação do Prometheus e Grafana para monitoramento preventivo do cluster (evitando *OOMKilled*).
